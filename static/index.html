@@ -889,6 +889,30 @@
             renderChats();
         }
 
+        function formatConvTime(c) {
+            if (c.last_activity_timestamp && c.last_activity_timestamp > 0) {
+                const d = new Date(c.last_activity_timestamp * 1000);
+                return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+            return formatMsgTime(c.updated_at || '');
+        }
+
+        function formatMsgTime(timeStr) {
+            if (!timeStr) return '';
+            const parts = timeStr.split(':');
+            if (parts.length === 2) {
+                let h = parseInt(parts[0], 10);
+                let min = parts[1];
+                if (!isNaN(h)) {
+                    if (["04", "06", "07"].includes(parts[0])) {
+                        h = (h + 7) % 24;
+                        return `${h < 10 ? '0' : ''}${h}:${min}`;
+                    }
+                }
+            }
+            return timeStr;
+        }
+
         function renderChats() {
             const listEl = document.getElementById('chat-list-el');
             const searchKeyword = (document.getElementById('search-input').value || '').toLowerCase();
@@ -933,7 +957,7 @@
                         <div class="chat-info">
                             <div class="chat-name-row">
                                 <span class="chat-name">${escapeHtml(c.customer_name)}${pinIcon}</span>
-                                <span class="chat-time">${c.updated_at || ''}</span>
+                                <span class="chat-time">${formatConvTime(c)}</span>
                             </div>
                             <span class="channel-tag" style="background:${channelColor};">${channelName}</span>
                             <div class="chat-last-msg">${escapeHtml(lastMsg)}</div>
@@ -1044,7 +1068,7 @@
                                 <div class="msg-bubble">${escapeHtml(m.text)}</div>
                                 <div class="msg-meta">
                                     <span class="msg-read-status">อ่านแล้ว</span>
-                                    <span>${m.time || ''}</span>
+                                    <span>${formatMsgTime(m.time)}</span>
                                 </div>
                             </div>
                         </div>
@@ -1058,7 +1082,7 @@
                                 <div class="msg-content-flex">
                                     <div class="msg-bubble">${escapeHtml(m.text)}</div>
                                     <div class="msg-meta">
-                                        <span>${m.time || ''}</span>
+                                        <span>${formatMsgTime(m.time)}</span>
                                     </div>
                                 </div>
                             </div>
