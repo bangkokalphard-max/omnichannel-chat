@@ -669,7 +669,24 @@
                 display: flex !important;
             }
             .customer-title {
-                max-width: 150px;
+            .header-top {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .header-actions {
+                display: flex;
+                gap: 6px;
+                width: 100%;
+                justify-content: space-between;
+            }
+            .header-actions button {
+                flex: 1;
+                justify-content: center;
+                padding: 7px 4px !important;
+                font-size: 11.5px !important;
+            }
+            .filter-tabs {
+                padding-bottom: 2px;
             }
         }
 
@@ -691,9 +708,9 @@
                     กล่องแชทรวม
                     <span id="badge-total" class="badge-count">0</span>
                 </div>
-                <div style="display:flex; gap:6px;">
+                <div class="header-actions">
                     <button id="btn-notify-perm" class="btn-refresh" onclick="enableNotifications()" title="เปิดการแจ้งเตือนเสียงและหน้าจอ" style="background:rgba(200, 149, 101, 0.15); color:var(--earth-sand); border:1px solid rgba(200, 149, 101, 0.3);">
-                        <i class="fa-solid fa-bell"></i> เปิดแจ้งเตือน
+                        <i class="fa-solid fa-bell"></i> แจ้งเตือน
                     </button>
                     <button class="btn-whatsapp" onclick="openWhatsAppModal()" id="btn-wa-status" title="เชื่อมต่อ WhatsApp">
                         <i class="fa-brands fa-whatsapp"></i> WhatsApp
@@ -1408,43 +1425,61 @@
 
         // Request browser notification permission on user interaction
         function enableNotifications() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            // เล่นเสียงทดสอบทันทีเพื่อปลดล็อกเสียงบนมือถือ
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            } catch (e) {}
+            // ส่งเสียงทดสอบ
             playNotificationSound();
 
-            if (!window.Notification) {
-                alert('เบราว์เซอร์นี้ยังไม่เปิดรองรับการแจ้งเตือนแบบป็อปอัป\n\nสำหรับ iPhone: ให้กดปุ่ม "แชร์" -> "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)" ก่อนเปิดใช้งานครับ');
+            const btn = document.getElementById('btn-notify-perm');
+
+            // ตรวจสอบว่ารองรับ Notification หรือไม่
+            if (!('Notification' in window)) {
+                alert('อุปกรณ์หรือเบราว์เซอร์นี้ยังไม่เปิดการแจ้งเตือนแบบป็อปอัป\n\nสำหรับ iPhone: ให้กดปุ่ม "แชร์" ด้านล่างของ Safari แล้วเลือก "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)" จากนั้นเปิดผ่านไอคอนบนหน้าจอโฮมครับ');
                 return;
             }
 
-            // รองรับทั้งแบบ Promise (มาตรฐานใหม่) และ Callback (iOS Safari รุ่นเก่า)
-            const handlePerm = (perm) => {
-                const btn = document.getElementById('btn-notify-perm');
+            if (Notification.permission === 'granted') {
+                if (btn) {
+                    btn.innerHTML = '<i class="fa-solid fa-bell"></i> เปิดแล้ว';
+                    btn.style.color = '#8cb88b';
+                    btn.style.borderColor = 'rgba(88, 129, 87, 0.4)';
+                }
+                triggerSystemNotification('ทดสอบการแจ้งเตือน!', 'ระบบแจ้งเตือนทำงานปกติแล้วครับ 🔔');
+                alert('ระบบเปิดการแจ้งเตือนอยู่แล้วครับ! (ทดสอบส่งข้อความแจ้งเตือนเรียบร้อยแล้ว)');
+                return;
+            }
+
+            const onPermissionResult = (perm) => {
                 if (perm === 'granted') {
                     if (btn) {
-                        btn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> แจ้งเตือน: เปิดแล้ว';
+                        btn.innerHTML = '<i class="fa-solid fa-bell"></i> เปิดแล้ว';
                         btn.style.color = '#8cb88b';
                         btn.style.borderColor = 'rgba(88, 129, 87, 0.4)';
                     }
-                    triggerSystemNotification('เปิดแจ้งเตือนสำเร็จ!', 'ระบบจะแจ้งเตือนพร้อมเสียงเมื่อมีลูกค้าทักเข้ามาครับ');
+                    triggerSystemNotification('เปิดแจ้งเตือนสำเร็จ!', 'ระบบจะส่งเสียงและเด้งเตือนเมื่อมีลูกค้าทักเข้ามาครับ');
                     alert('เปิดการแจ้งเตือนสำเร็จแล้ว! ระบบจะส่งเสียงและเด้งเตือนเมื่อมีลูกค้าทักเข้ามาครับ');
                 } else if (perm === 'denied') {
-                    alert('การแจ้งเตือนถูกปิดกั้นอยู่ โปรดเปิดการอนุญาตใน "การตั้งค่า (Settings) > Safari / Chrome > การแจ้งเตือน" ครับ');
+                    alert('การแจ้งเตือนถูกปิดกั้นอยู่ โปรดเปิดอนุญาตใน:\nการตั้งค่า iPhone > Safari (หรือ OmniChat) > การแจ้งเตือน > อนุญาต');
                 }
             };
 
             try {
-                const p = Notification.requestPermission(handlePerm);
-                if (p && p.then) {
-                    p.then(handlePerm);
+                const req = Notification.requestPermission(onPermissionResult);
+                if (req && req.then) {
+                    req.then(onPermissionResult);
                 }
-            } catch (e) {
-                Notification.requestPermission(handlePerm);
+            } catch (err) {
+                try {
+                    Notification.requestPermission(onPermissionResult);
+                } catch (e2) {
+                    alert('ไม่สามารถเรียกขอสิทธิ์แจ้งเตือนได้: ' + e2);
+                }
             }
         }
 
