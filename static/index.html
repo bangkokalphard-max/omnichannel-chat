@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#131922">
+    <meta name="apple-mobile-web-app-title" content="OmniChat">
+    <meta name="theme-color" content="#26221d">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <title>Omnichannel Chat Inbox</title>
     <!-- FontAwesome & Sarabun Font -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -689,6 +692,9 @@
                     <span id="badge-total" class="badge-count">0</span>
                 </div>
                 <div style="display:flex; gap:6px;">
+                    <button id="btn-notify-perm" class="btn-refresh" onclick="enableNotifications()" title="เปิดการแจ้งเตือนเสียงและหน้าจอ" style="background:rgba(200, 149, 101, 0.15); color:var(--earth-sand); border:1px solid rgba(200, 149, 101, 0.3);">
+                        <i class="fa-solid fa-bell"></i> เปิดแจ้งเตือน
+                    </button>
                     <button class="btn-whatsapp" onclick="openWhatsAppModal()" id="btn-wa-status" title="เชื่อมต่อ WhatsApp">
                         <i class="fa-brands fa-whatsapp"></i> WhatsApp
                         <span id="wa-status-dot" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#94a3b8;"></span>
@@ -1364,17 +1370,64 @@
                     window.navigator.vibrate([100, 50, 100]);
                 }
             } catch (e) {
-                console.log('Audio notify error:', e);
+        // Register Service Worker for Mobile PWA Push / Lock-screen Notifications
+        let swReg = null;
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js').then(reg => {
+                swReg = reg;
+                console.log('Service Worker registered successfully');
+            }).catch(err => {
+                console.log('SW registration failed:', err);
+            });
+        }
+
+        function triggerSystemNotification(title, body) {
+            playNotificationSound();
+            if (window.Notification && Notification.permission === 'granted') {
+                if (swReg && swReg.showNotification) {
+                    swReg.showNotification(title, {
+                        body: body,
+                        icon: '/static/icons/icon-192.png',
+                        badge: '/static/icons/icon-192.png',
+                        vibrate: [200, 100, 200, 100, 200],
+                        tag: 'chat-msg',
+                        renotify: true
+                    });
+                } else {
+                    new Notification(title, {
+                        body: body,
+                        icon: '/static/icons/icon-192.png'
+                    });
+                }
             }
         }
 
         // Request browser notification permission on user interaction
+        function enableNotifications() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            playNotificationSound();
+            if (window.Notification) {
+                Notification.requestPermission().then(perm => {
+                    if (perm === 'granted') {
+                        triggerSystemNotification('เปิดแจ้งเตือนสำเร็จ!', 'ระบบจะแจ้งเตือนเมื่อมีลูกค้าทักเข้ามาครับ');
+                        const banner = document.getElementById('notif-banner');
+                        if (banner) banner.style.display = 'none';
+                    }
+                });
+            }
+        }
+
         document.addEventListener('click', () => {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            if (window.Notification && Notification.permission === 'default') {
-                Notification.requestPermission();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
             }
         }, { once: true });
 
@@ -1391,10 +1444,9 @@
                     const data = JSON.parse(event.data);
                     if (data.type === 'whatsapp_status') {
                         checkWhatsAppStatus(false);
-                    } else if (data.type === 'incoming_customer_message' || data.type === 'new_message') {
-                        if (data.type === 'incoming_customer_message') {
-                            playNotificationSound();
-                        }
+                    } else if (data.type === 'incoming_customer_message') {
+                        const mText = data.message ? data.message.text : 'ส่งข้อความใหม่เข้ามา';
+                        triggerSystemNotification('มีลูกค้าทักเข้ามาใหม่!', mText);
                     }
                 } catch (e) {}
                 await loadData(true);
@@ -1414,7 +1466,7 @@
                 
                 // If new messages arrived
                 if (lastKnownMsgCount > 0 && totalMsgs > lastKnownMsgCount) {
-                    playNotificationSound();
+                    triggerSystemNotification('มีลูกค้าทักเข้ามาใหม่!', 'มีข้อความใหม่เข้ามาในระบบ');
                 }
                 lastKnownMsgCount = totalMsgs;
                 
