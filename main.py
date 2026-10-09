@@ -30,7 +30,7 @@ line_accounts = [
         "id": "line-2",
         "name": "Bangkokalphard",
         "platform": "line",
-        "access_token": "", # รอใส่ Access Token เพื่อตอบกลับ
+        "access_token": "BQgGzbMkvk8LAOq0c7CmHJUyWXZ+5dkzaMnJ5Y3ydT/u0UrlakstkuXdSGGn2YQcigC4duj2cqlwfoCSVc9NEMk+yVvJ0G9rBgpbX+ygphmNlggRu6z+v5gBWUkTrC8UK3sr8VyJK2UBQ7f7OvAlEwdB04t89/1O/w1cDnyilFU=",
         "channel_secret": "4128ba6c6d33b3974c78566aa609a6de",
         "color": "#06b6d4" # ฟ้า Cyan
     },
