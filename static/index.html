@@ -1370,6 +1370,10 @@
                     window.navigator.vibrate([100, 50, 100]);
                 }
             } catch (e) {
+                console.log('Audio notify error:', e);
+            }
+        }
+
         // Register Service Worker for Mobile PWA Push / Lock-screen Notifications
         let swReg = null;
         if ('serviceWorker' in navigator) {
@@ -1410,15 +1414,37 @@
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
+            // เล่นเสียงทดสอบทันทีเพื่อปลดล็อกเสียงบนมือถือ
             playNotificationSound();
-            if (window.Notification) {
-                Notification.requestPermission().then(perm => {
-                    if (perm === 'granted') {
-                        triggerSystemNotification('เปิดแจ้งเตือนสำเร็จ!', 'ระบบจะแจ้งเตือนเมื่อมีลูกค้าทักเข้ามาครับ');
-                        const banner = document.getElementById('notif-banner');
-                        if (banner) banner.style.display = 'none';
+
+            if (!window.Notification) {
+                alert('เบราว์เซอร์นี้ยังไม่เปิดรองรับการแจ้งเตือนแบบป็อปอัป\n\nสำหรับ iPhone: ให้กดปุ่ม "แชร์" -> "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)" ก่อนเปิดใช้งานครับ');
+                return;
+            }
+
+            // รองรับทั้งแบบ Promise (มาตรฐานใหม่) และ Callback (iOS Safari รุ่นเก่า)
+            const handlePerm = (perm) => {
+                const btn = document.getElementById('btn-notify-perm');
+                if (perm === 'granted') {
+                    if (btn) {
+                        btn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> แจ้งเตือน: เปิดแล้ว';
+                        btn.style.color = '#8cb88b';
+                        btn.style.borderColor = 'rgba(88, 129, 87, 0.4)';
                     }
-                });
+                    triggerSystemNotification('เปิดแจ้งเตือนสำเร็จ!', 'ระบบจะแจ้งเตือนพร้อมเสียงเมื่อมีลูกค้าทักเข้ามาครับ');
+                    alert('เปิดการแจ้งเตือนสำเร็จแล้ว! ระบบจะส่งเสียงและเด้งเตือนเมื่อมีลูกค้าทักเข้ามาครับ');
+                } else if (perm === 'denied') {
+                    alert('การแจ้งเตือนถูกปิดกั้นอยู่ โปรดเปิดการอนุญาตใน "การตั้งค่า (Settings) > Safari / Chrome > การแจ้งเตือน" ครับ');
+                }
+            };
+
+            try {
+                const p = Notification.requestPermission(handlePerm);
+                if (p && p.then) {
+                    p.then(handlePerm);
+                }
+            } catch (e) {
+                Notification.requestPermission(handlePerm);
             }
         }
 
