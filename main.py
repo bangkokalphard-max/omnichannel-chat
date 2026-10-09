@@ -147,7 +147,7 @@ async def startup_event():
     # Start WhatsApp client in background thread
     whatsapp_manager.start()
 
-def handle_whatsapp_incoming(sender_id: str, full_jid: str, push_name: str, text: str, avatar_url: str = ""):
+def handle_whatsapp_incoming(sender_id: str, full_jid: str, push_name: str, text: str, avatar_url: str = "", is_from_me: bool = False):
     if not avatar_url:
         import urllib.parse
         enc = urllib.parse.quote(push_name or "WA")
@@ -160,11 +160,13 @@ def handle_whatsapp_incoming(sender_id: str, full_jid: str, push_name: str, text
         customer_name=push_name,
         avatar_url=avatar_url
     )
-    saved_msg = db.save_message(conv_id, sender="customer", text=text)
+    sender_type = "agent" if is_from_me else "customer"
+    saved_msg = db.save_message(conv_id, sender=sender_type, text=text)
     if main_loop and main_loop.is_running():
+        event_type = "new_message" if is_from_me else "incoming_customer_message"
         asyncio.run_coroutine_threadsafe(
             manager.broadcast({
-                "type": "incoming_customer_message",
+                "type": event_type,
                 "conversation_id": conv_id,
                 "message": saved_msg
             }),

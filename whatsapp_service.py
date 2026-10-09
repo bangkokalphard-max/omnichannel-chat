@@ -97,15 +97,12 @@ class WhatsAppManager:
                     info = msg_ev.Info
                     source = getattr(info, "MessageSource", None)
 
-                    # Ignore messages sent by me
+                    # Check if message is from me
                     is_from_me = False
                     if source and hasattr(source, "IsFromMe"):
                         is_from_me = bool(source.IsFromMe)
                     elif hasattr(info, "IsFromMe"):
                         is_from_me = bool(info.IsFromMe)
-
-                    if is_from_me:
-                        return
 
                     # Resolve sender and chat JID
                     chat_jid = getattr(source, "Chat", None) if source else None
@@ -176,7 +173,8 @@ class WhatsAppManager:
                             full_jid=full_jid,
                             push_name=push_name,
                             text=text,
-                            avatar_url=avatar_url
+                            avatar_url=avatar_url,
+                            is_from_me=is_from_me
                         )
                 except Exception as e:
                     print("Error processing incoming WhatsApp message:", e)
