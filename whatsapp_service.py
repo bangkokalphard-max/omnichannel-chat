@@ -94,29 +94,72 @@ class WhatsAppManager:
             @self.client.event(MessageEv)
             def on_message(client, msg_ev: MessageEv):
                 try:
-                    sender_jid = msg_ev.Info.Sender
-                    # Ignore messages from myself or status broadcasts
-                    if msg_ev.Info.IsFromMe or sender_jid.User == "status":
+                    info = msg_ev.Info
+                    source = getattr(info, "MessageSource", None)
+
+                    # Ignore messages sent by me
+                    is_from_me = False
+                    if source and hasattr(source, "IsFromMe"):
+                        is_from_me = bool(source.IsFromMe)
+                    elif hasattr(info, "IsFromMe"):
+                        is_from_me = bool(info.IsFromMe)
+
+                    if is_from_me:
                         return
+
+                    # Resolve sender and chat JID
+                    chat_jid = getattr(source, "Chat", None) if source else None
+                    sender_jid = (getattr(source, "Sender", None) if source else None) or chat_jid
+                    if not sender_jid and hasattr(info, "Sender"):
+                        sender_jid = info.Sender
+
+                    if not sender_jid:
+                        return
+
+                    user_id = getattr(sender_jid, "User", "")
+                    server = getattr(sender_jid, "Server", "")
+
+                    if not user_id or user_id == "status" or "broadcast" in server:
+                        return
+
+                    # Chat target ID (for conversations)
+                    chat_user = getattr(chat_jid, "User", user_id) if chat_jid else user_id
+                    chat_server = getattr(chat_jid, "Server", server) if chat_jid else server
+
+                    full_jid = f"{chat_user}@{chat_server}" if chat_server else chat_user
+                    sender_id = chat_user
 
                     # Extract message text
                     text = ""
                     msg = msg_ev.Message
-                    if msg.conversation:
+                    if getattr(msg, "conversation", None):
                         text = msg.conversation
                     elif msg.HasField("extendedTextMessage") and msg.extendedTextMessage.text:
                         text = msg.extendedTextMessage.text
-                    elif msg.HasField("imageMessage") and msg.imageMessage.caption:
-                        text = f"[รูปภาพ] {msg.imageMessage.caption}"
                     elif msg.HasField("imageMessage"):
-                        text = "[รูปภาพ]"
+                        caption = msg.imageMessage.caption if msg.imageMessage.caption else ""
+                        text = f"[รูปภาพ] {caption}".strip()
+                    elif msg.HasField("documentMessage"):
+                        fname = msg.documentMessage.fileName if msg.documentMessage.fileName else ""
+                        text = f"[เอกสาร] {fname}".strip()
+                    elif msg.HasField("audioMessage"):
+                        text = "[ข้อความเสียง]"
+                    elif msg.HasField("videoMessage"):
+                        caption = msg.videoMessage.caption if msg.videoMessage.caption else ""
+                        text = f"[วิดีโอ] {caption}".strip()
+                    elif msg.HasField("stickerMessage"):
+                        text = "[สติกเกอร์]"
+                    elif msg.HasField("locationMessage"):
+                        text = "[ตำแหน่งที่ตั้ง GPS]"
+                    elif msg.HasField("contactMessage"):
+                        text = "[รายชื่อติดต่อ]"
 
                     if not text.strip():
                         return
 
-                    sender_id = sender_jid.User # e.g. "66812345678"
-                    push_name = msg_ev.Info.Pushname or f"WhatsApp (+{sender_id})"
-                    full_jid = f"{sender_id}@{sender_jid.Server}"
+                    push_name = getattr(info, "Pushname", "") or f"WhatsApp (+{sender_id})"
+
+                    print(f"WHATSAPP INCOMING: {push_name} ({sender_id}): {text}")
 
                     if self.on_message_callback:
                         self.on_message_callback(
@@ -137,9 +180,10 @@ class WhatsAppManager:
         if not self.client or not self.is_connected:
             return False
         try:
-            # Build JID (e.g. 66812345678@s.whatsapp.net)
-            user_part = recipient_id.split("@")[0].replace("+", "").replace("-", "").strip()
-            target_jid = build_jid(user_part, "s.whatsapp.net")
+            # Build JID (e.g. 66812345678@s.whatsapp.net or group @g.us)
+            server = "g.us" if "@g.us" in recipient_id or "-" in recipient_id else "s.whatsapp.net"
+            user_part = recipient_id.split("@")[0].replace("+", "").strip()
+            target_jid = build_jid(user_part, server)
             self.client.send_message(target_jid, text)
             return True
         except Exception as e:
