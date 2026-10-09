@@ -708,8 +708,10 @@
                 <button class="filter-tab active" onclick="setFilter('all', this)">ทั้งหมด</button>
                 <button class="filter-tab" onclick="setFilter('line-1', this)">🟢 Alphard (LINE)</button>
                 <button class="filter-tab" onclick="setFilter('line-2', this)">🔵 Bangkokalphard (LINE)</button>
-                <button class="filter-tab" onclick="setFilter('fb-alphard', this)">🔷 Alphard (FB)</button>
-                <button class="filter-tab" onclick="setFilter('fb-sclass', this)">🔹 Sclass (FB)</button>
+                <button class="filter-tab" onclick="setFilter('fb-alphard', this)">📘 Alphard (FB)</button>
+                <button class="filter-tab" onclick="setFilter('fb-sclass', this)">🔷 Sclass (FB)</button>
+                <button class="filter-tab" onclick="setFilter('ig-alphard', this)">📸 Alphard (IG)</button>
+                <button class="filter-tab" onclick="setFilter('ig-sclass', this)">📸 Sclass (IG)</button>
                 <button class="filter-tab" onclick="setFilter('whatsapp', this)">🟢 WhatsApp</button>
             </div>
 
@@ -909,10 +911,13 @@
                 const isPinned = !!c.is_pinned;
                 const lastMsg = c.messages && c.messages.length > 0 ? c.messages[c.messages.length - 1].text : 'ไม่มีข้อความ';
                 const isFb = c.platform === 'facebook' || (c.channel_id && c.channel_id.startsWith('fb'));
-                const channelColor = c.channel_color || (isWa ? '#4f7d5e' : (isFb ? '#43617e' : '#588157'));
-                const channelName = c.channel_name || (isWa ? 'WhatsApp' : (isFb ? 'Facebook' : 'LINE OA'));
+                const isIg = c.platform === 'instagram' || (c.channel_id && c.channel_id.startsWith('ig'));
+                const isWa = c.platform === 'whatsapp' || c.channel_id === 'whatsapp';
+                const channelColor = c.channel_color || (isIg ? '#c06c84' : (isWa ? '#4f7d5e' : (isFb ? '#43617e' : '#588157')));
+                const channelName = c.channel_name || (isIg ? 'Instagram' : (isWa ? 'WhatsApp' : (isFb ? 'Facebook' : 'LINE OA')));
                 let iconClass = 'fa-brands fa-line';
-                if (isFb) iconClass = 'fa-brands fa-facebook-messenger';
+                if (isIg) iconClass = 'fa-brands fa-instagram';
+                else if (isFb) iconClass = 'fa-brands fa-facebook-messenger';
                 else if (isWa) iconClass = 'fa-brands fa-whatsapp';
                 const pinIcon = isPinned ? `<span style="color:var(--earth-sand); margin-left:6px; font-size:10px;" title="ปักหมุดแล้ว"><i class="fa-solid fa-thumbtack"></i></span>` : '';
                 
@@ -988,7 +993,7 @@
             }
 
             // Update Header
-            const chName = conv.channel_name || (conv.platform === 'whatsapp' ? 'WhatsApp' : (conv.platform === 'facebook' ? 'Facebook' : 'LINE OA'));
+            const chName = conv.channel_name || (conv.platform === 'instagram' ? 'Instagram' : (conv.platform === 'whatsapp' ? 'WhatsApp' : (conv.platform === 'facebook' ? 'Facebook' : 'LINE OA')));
             document.getElementById('header-avatar').src = conv.customer_avatar || 'https://via.placeholder.com/100';
             document.getElementById('header-name').innerText = conv.customer_name;
             document.getElementById('header-sub').innerText = `ช่องทาง: ${chName}`;

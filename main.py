@@ -75,6 +75,22 @@ line_accounts = [
         "color": "#0284c7" # Deep Sky Blue
     },
     {
+        "id": "ig-alphard",
+        "name": "IG: Alphardbangkok",
+        "platform": "instagram",
+        "access_token": "EAAT5wZA8GQLIBSpDqDi2naOtlMqvc86iawnNa3vzOwIUC7xVcXnezVoxsxRphnzjT30upGh1e2tkMFY7nIHkcX3wh1fEt7Ez988QiHUAbWz6IO8K8R48GipztrUHpfMmYHuNUvZCghL60T47qfmLuNplj6uR99hTbd51zQb9ba9jnROakVsPCZBDEEKDtFCv3Qew5pu",
+        "channel_secret": "",
+        "color": "#c06c84" # Instagram Earth Rose
+    },
+    {
+        "id": "ig-sclass",
+        "name": "IG: Sclassbangkok",
+        "platform": "instagram",
+        "access_token": "EAAT5wZA8GQLIBSuy9tWra0c6OHFZBMaKde7ZAfGVZAM8Nu0yLZAYh9F1uShwPaDOrda4SQDTBhPNtVdZCxxFe7j7tgaByZAaougvZAkhcuZAKxTf0k4uZA3rv2Eik3DTEwBuODOZCmDH3kACEZA16izSZCDvVqd59gkV7e40gxwfOq42bJtUEUXSBN4o1dzBv4qP7MdaX1EKctUqnUQZDZD",
+        "channel_secret": "",
+        "color": "#9d4b68"
+    },
+    {
         "id": "whatsapp",
         "name": "WhatsApp",
         "platform": "whatsapp",
@@ -246,7 +262,7 @@ async def send_reply(reply: AgentReply):
     # ส่งออกตาม Platform
     if conv_data["platform"] == "line" and conv_data.get("access_token"):
         asyncio.create_task(send_line_message(conv_data["access_token"], conv_data["platform_user_id"], reply.message))
-    elif conv_data["platform"] == "facebook" and conv_data.get("access_token"):
+    elif conv_data["platform"] in ["facebook", "instagram"] and conv_data.get("access_token"):
         asyncio.create_task(send_facebook_message(conv_data["access_token"], conv_data["platform_user_id"], reply.message))
     elif conv_data["platform"] == "whatsapp":
         whatsapp_manager.send_text_message(conv_data["platform_user_id"], reply.message)
@@ -335,12 +351,28 @@ async def get_facebook_profile(token: str, user_id: str) -> dict:
         print(f"Error fetching FB profile: {e}")
     return {"name": f"ลูกค้า Facebook ({user_id[-4:]})", "profile_pic": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"}
 
+# Helper: Fetch Instagram user profile
+async def get_instagram_profile(token: str, user_id: str) -> dict:
+    url = f"https://graph.facebook.com/v21.0/{user_id}?fields=name,username,profile_pic&access_token={token}"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=5.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                name = data.get("name") or data.get("username")
+                pic = data.get("profile_pic")
+                return {"name": name, "profile_pic": pic}
+    except Exception as e:
+        print(f"Error fetching IG profile: {e}")
+    return {"name": f"ลูกค้า Instagram ({user_id[-4:]})", "profile_pic": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"}
+
 @app.post("/webhook/meta")
 async def handle_meta_webhook(request: Request):
     try:
         body = await request.json()
-        print("RECEIVED META EVENT OK")
+        print("RECEIVED META EVENT OK:", json.dumps(body, ensure_ascii=False))
         
+        is_instagram = body.get("object") == "instagram"
         entries = body.get("entry", [])
         for entry in entries:
             messaging = entry.get("messaging", [])
@@ -350,30 +382,42 @@ async def handle_meta_webhook(request: Request):
                 message = msg_item.get("message", {})
                 text = message.get("text")
                 
-                # ถ้ามีข้อความทักเข้ามา
+                # ถ้ามีข้อความทักเข้ามา (และไม่ใช่ echo)
                 if text and sender_id and not message.get("is_echo"):
-                    page_id = str(entry.get("id") or recipient_id or "")
-                    if page_id == "429912036877958":
-                        channel_id = "fb-sclass"
-                    elif page_id == "106886601678652":
-                        channel_id = "fb-alphard"
+                    target_id = str(entry.get("id") or recipient_id or "")
+                    
+                    if is_instagram:
+                        platform = "instagram"
+                        if target_id == "429912036877958" or "sclass" in target_id.lower():
+                            channel_id = "ig-sclass"
+                        else:
+                            channel_id = "ig-alphard"
+                        
+                        channel = db.get_channel(channel_id)
+                        token = channel["access_token"] if channel else ""
+                        profile = await get_instagram_profile(token, sender_id)
+                        customer_real_name = profile.get("name") or f"ลูกค้า Instagram ({sender_id[-4:]})"
+                        customer_real_avatar = profile.get("profile_pic") or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
                     else:
-                        channel_id = "fb-sclass" if "sclass" in page_id.lower() else "fb-alphard"
-                    
-                    print(f"META MESSAGE: page_id={page_id} -> channel_id={channel_id}")
+                        platform = "facebook"
+                        if target_id == "429912036877958":
+                            channel_id = "fb-sclass"
+                        elif target_id == "106886601678652":
+                            channel_id = "fb-alphard"
+                        else:
+                            channel_id = "fb-sclass" if "sclass" in target_id.lower() else "fb-alphard"
+                        
+                        channel = db.get_channel(channel_id)
+                        token = channel["access_token"] if channel else ""
+                        fb_profile = await get_facebook_profile(token, sender_id)
+                        customer_real_name = fb_profile.get("name") or f"ลูกค้า Facebook ({sender_id[-4:]})"
+                        customer_real_avatar = fb_profile.get("profile_pic") or "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"
 
-                    
-                    # ดึง Access Token ของเพจนั้นเพื่อขอชื่อและรูปโปรไฟล์จริง
-                    channel = db.get_channel(channel_id)
-                    token = channel["access_token"] if channel else ""
-                    
-                    fb_profile = await get_facebook_profile(token, sender_id)
-                    customer_real_name = fb_profile.get("name") or f"ลูกค้า Facebook ({sender_id[-4:]})"
-                    customer_real_avatar = fb_profile.get("profile_pic") or "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"
+                    print(f"META MESSAGE: is_instagram={is_instagram}, target_id={target_id} -> channel_id={channel_id}")
 
                     conv_id = db.get_or_create_conversation(
                         channel_id=channel_id,
-                        platform="facebook",
+                        platform=platform,
                         user_id=sender_id,
                         customer_name=customer_real_name,
                         avatar_url=customer_real_avatar
