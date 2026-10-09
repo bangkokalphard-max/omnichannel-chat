@@ -169,7 +169,29 @@ class WhatsAppManager:
                             avatar_url = pic_info.URL
                             print(f"WHATSAPP AVATAR FETCHED: {avatar_url}")
                     except Exception as err:
-                        print("Could not fetch WA profile picture with full params, trying fallback:", err)
+                        print("Could not fetch WA profile picture with target_jid:", err)
+
+                    # If not found yet and this is a LID user, try looking up phone number from whatsapp_store.db
+                    if not avatar_url:
+                        try:
+                            import sqlite3
+                            wconn = sqlite3.connect("whatsapp_store.db")
+                            wc = wconn.cursor()
+                            pn_row = wc.execute("SELECT pn FROM whatsmeow_lid_map WHERE lid = ?", (sender_id,)).fetchone()
+                            wconn.close()
+                            if pn_row and pn_row[0]:
+                                phone_num = pn_row[0]
+                                phone_jid = build_jid(phone_num, "s.whatsapp.net")
+                                import neonize.proto.Neonize_pb2 as neonize_pb
+                                params = neonize_pb.GetProfilePictureParams(Preview=False)
+                                pic_info = self.client.get_profile_picture(phone_jid, params)
+                                if pic_info and getattr(pic_info, "URL", None):
+                                    avatar_url = pic_info.URL
+                                    print(f"WHATSAPP AVATAR FETCHED VIA PHONE JID ({phone_num}): {avatar_url}")
+                        except Exception as e_pn:
+                            print("Could not fetch WA profile picture via phone JID:", e_pn)
+
+                    if not avatar_url:
                         try:
                             pic_info = self.client.get_profile_picture(chat_jid or sender_jid)
                             if pic_info and getattr(pic_info, "URL", None):
