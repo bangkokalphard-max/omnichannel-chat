@@ -147,8 +147,12 @@ async def startup_event():
     # Start WhatsApp client in background thread
     whatsapp_manager.start()
 
-def handle_whatsapp_incoming(sender_id: str, full_jid: str, push_name: str, text: str):
-    avatar_url = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
+def handle_whatsapp_incoming(sender_id: str, full_jid: str, push_name: str, text: str, avatar_url: str = ""):
+    if not avatar_url:
+        import urllib.parse
+        enc = urllib.parse.quote(push_name or "WA")
+        avatar_url = f"https://ui-avatars.com/api/?name={enc}&background=3d3832&color=f5ede2&bold=true"
+
     conv_id = db.get_or_create_conversation(
         channel_id="whatsapp",
         platform="whatsapp",
@@ -183,18 +187,25 @@ whatsapp_manager.on_status_callback = handle_whatsapp_status
 
 # Helper: Fetch LINE user profile
 async def get_line_profile(token: str, user_id: str) -> dict:
+    import urllib.parse
+    enc = urllib.parse.quote(user_id[-4:])
+    fallback_avatar = f"https://ui-avatars.com/api/?name={enc}&background=3d3832&color=f5ede2&bold=true"
+
     if not token or not token.strip():
-        return {"displayName": f"ลูกค้า LINE ({user_id[-4:]})", "pictureUrl": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces"}
+        return {"displayName": f"ลูกค้า LINE ({user_id[-4:]})", "pictureUrl": fallback_avatar}
     url = f"https://api.line.me/v2/bot/profile/{user_id}"
     headers = {"Authorization": f"Bearer {token.strip()}"}
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=headers, timeout=5.0)
             if resp.status_code == 200:
-                return resp.json()
+                data = resp.json()
+                if not data.get("pictureUrl"):
+                    data["pictureUrl"] = fallback_avatar
+                return data
     except Exception as e:
         print(f"Error fetching profile: {e}")
-    return {"displayName": f"ลูกค้า LINE ({user_id[-4:]})", "pictureUrl": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces"}
+    return {"displayName": f"ลูกค้า LINE ({user_id[-4:]})", "pictureUrl": fallback_avatar}
 
 # Helper: Push reply to customer via specific LINE token
 async def send_line_message(token: str, user_id: str, text: str):
@@ -349,22 +360,27 @@ async def get_facebook_profile(token: str, user_id: str) -> dict:
                 return resp.json()
     except Exception as e:
         print(f"Error fetching FB profile: {e}")
-    return {"name": f"ลูกค้า Facebook ({user_id[-4:]})", "profile_pic": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"}
+    import urllib.parse
+    enc = urllib.parse.quote(user_id[-4:])
+    return {"name": f"ลูกค้า Facebook ({user_id[-4:]})", "profile_pic": f"https://ui-avatars.com/api/?name={enc}&background=3d3832&color=f5ede2&bold=true"}
 
 # Helper: Fetch Instagram user profile
 async def get_instagram_profile(token: str, user_id: str) -> dict:
     url = f"https://graph.facebook.com/v21.0/{user_id}?fields=name,username,profile_pic&access_token={token}"
+    import urllib.parse
+    enc = urllib.parse.quote(user_id[-4:])
+    fallback_avatar = f"https://ui-avatars.com/api/?name={enc}&background=3d3832&color=f5ede2&bold=true"
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, timeout=5.0)
             if resp.status_code == 200:
                 data = resp.json()
                 name = data.get("name") or data.get("username")
-                pic = data.get("profile_pic")
+                pic = data.get("profile_pic") or fallback_avatar
                 return {"name": name, "profile_pic": pic}
     except Exception as e:
         print(f"Error fetching IG profile: {e}")
-    return {"name": f"ลูกค้า Instagram ({user_id[-4:]})", "profile_pic": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"}
+    return {"name": f"ลูกค้า Instagram ({user_id[-4:]})", "profile_pic": fallback_avatar}
 
 @app.post("/webhook/meta")
 async def handle_meta_webhook(request: Request):
@@ -397,7 +413,7 @@ async def handle_meta_webhook(request: Request):
                         token = channel["access_token"] if channel else ""
                         profile = await get_instagram_profile(token, sender_id)
                         customer_real_name = profile.get("name") or f"ลูกค้า Instagram ({sender_id[-4:]})"
-                        customer_real_avatar = profile.get("profile_pic") or "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
+                        customer_real_avatar = profile.get("profile_pic")
                     else:
                         platform = "facebook"
                         if target_id == "429912036877958":
@@ -411,7 +427,7 @@ async def handle_meta_webhook(request: Request):
                         token = channel["access_token"] if channel else ""
                         fb_profile = await get_facebook_profile(token, sender_id)
                         customer_real_name = fb_profile.get("name") or f"ลูกค้า Facebook ({sender_id[-4:]})"
-                        customer_real_avatar = fb_profile.get("profile_pic") or "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"
+                        customer_real_avatar = fb_profile.get("profile_pic")
 
                     print(f"META MESSAGE: is_instagram={is_instagram}, target_id={target_id} -> channel_id={channel_id}")
 

@@ -161,12 +161,22 @@ class WhatsAppManager:
 
                     print(f"WHATSAPP INCOMING: {push_name} ({sender_id}): {text}")
 
+                    # ดึงรูปโปรไฟล์จริงจาก WhatsApp
+                    avatar_url = ""
+                    try:
+                        pic_info = self.client.get_profile_picture(chat_jid or sender_jid)
+                        if pic_info and getattr(pic_info, "URL", None):
+                            avatar_url = pic_info.URL
+                    except Exception as err:
+                        print("Could not fetch WA profile picture:", err)
+
                     if self.on_message_callback:
                         self.on_message_callback(
                             sender_id=sender_id,
                             full_jid=full_jid,
                             push_name=push_name,
-                            text=text
+                            text=text,
+                            avatar_url=avatar_url
                         )
                 except Exception as e:
                     print("Error processing incoming WhatsApp message:", e)
