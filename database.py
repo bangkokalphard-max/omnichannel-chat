@@ -1,6 +1,11 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict
+
+BKK_TZ = timezone(timedelta(hours=7))
+
+def get_bkk_time() -> str:
+    return datetime.now(BKK_TZ).strftime("%H:%M")
 
 DB_PATH = "chat_history.db"
 
@@ -106,7 +111,7 @@ def get_or_create_conversation(channel_id: str, platform: str, user_id: str, cus
     conn = get_db()
     cursor = conn.cursor()
     conv_id = f"{channel_id}_{user_id}"
-    time_display = datetime.now().strftime("%H:%M")
+    time_display = get_bkk_time()
     current_ts = int(datetime.now().timestamp())
     
     cursor.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,))
@@ -179,7 +184,7 @@ def delete_conversation(conv_id: str) -> bool:
 def save_message(conv_id: str, sender: str, text: str, msg_id: str = None):
     conn = get_db()
     cursor = conn.cursor()
-    time_display = datetime.now().strftime("%H:%M")
+    time_display = get_bkk_time()
     current_ts = int(datetime.now().timestamp())
     
     if not msg_id:

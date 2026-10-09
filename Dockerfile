@@ -2,11 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y ffmpeg libmagic1 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y tzdata ffmpeg libmagic1 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 user
 USER user
-ENV HOME=/home/user \
+ENV TZ=Asia/Bangkok \
+    HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH
 
 WORKDIR $HOME/app
