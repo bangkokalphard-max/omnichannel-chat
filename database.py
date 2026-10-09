@@ -132,9 +132,11 @@ def get_or_create_conversation(channel_id: str, platform: str, user_id: str, cus
 
         existing_avatar = row["customer_avatar"]
         new_avatar = avatar_url
-        if existing_avatar and "unsplash" not in existing_avatar:
-            if "unsplash" in avatar_url or not avatar_url:
-                new_avatar = existing_avatar
+        # ถ้า avatar ใหม่เป็นรูปจริง (ไม่ใช่ placeholder / ui-avatars) ให้อัปเดตรูปใหม่เสมอ
+        if avatar_url and "ui-avatars" not in avatar_url and "unsplash" not in avatar_url:
+            new_avatar = avatar_url
+        elif existing_avatar and "ui-avatars" not in existing_avatar and "unsplash" not in existing_avatar:
+            new_avatar = existing_avatar
 
         cursor.execute("""
         UPDATE conversations 
