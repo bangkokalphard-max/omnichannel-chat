@@ -472,8 +472,8 @@ async def line_webhook_multi(request: Request, channel_id: str = "line-1"):
             
             # ดึงโปรไฟล์จริงของลูกค้า
             profile = await get_line_profile(token, user_id)
-            customer_name = profile.get("displayName", f"LINE ({user_id[-4:]})")
-            avatar_url = profile.get("pictureUrl") or "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces"
+            customer_name = profile.get("displayName") or f"ลูกค้า LINE ({user_id[-4:]})"
+            avatar_url = profile.get("pictureUrl")
 
             # สร้างหรืออัปเดตห้องสนทนาใน SQLite
             conv_id = db.get_or_create_conversation(
