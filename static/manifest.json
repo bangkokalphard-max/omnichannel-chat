@@ -1,0 +1,23 @@
+{
+  "name": "Omnichannel Chat Inbox",
+  "short_name": "OmniChat",
+  "description": "Multi-channel Customer Inbox for LINE OA, Facebook, IG and WhatsApp",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1b1916",
+  "theme_color": "#26221d",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
