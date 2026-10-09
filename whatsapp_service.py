@@ -161,11 +161,21 @@ class WhatsAppManager:
                     # ดึงรูปโปรไฟล์จริงจาก WhatsApp
                     avatar_url = ""
                     try:
-                        pic_info = self.client.get_profile_picture(chat_jid or sender_jid)
+                        import neonize.proto.Neonize_pb2 as neonize_pb
+                        params = neonize_pb.GetProfilePictureParams(Preview=False)
+                        target_jid = chat_jid or sender_jid
+                        pic_info = self.client.get_profile_picture(target_jid, params)
                         if pic_info and getattr(pic_info, "URL", None):
                             avatar_url = pic_info.URL
+                            print(f"WHATSAPP AVATAR FETCHED: {avatar_url}")
                     except Exception as err:
-                        print("Could not fetch WA profile picture:", err)
+                        print("Could not fetch WA profile picture with full params, trying fallback:", err)
+                        try:
+                            pic_info = self.client.get_profile_picture(chat_jid or sender_jid)
+                            if pic_info and getattr(pic_info, "URL", None):
+                                avatar_url = pic_info.URL
+                        except Exception:
+                            pass
 
                     if self.on_message_callback:
                         self.on_message_callback(
